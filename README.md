@@ -31,9 +31,38 @@ python3 -m venv .venv
 Output lands in `data/raw/kalshi/` (gitignored — regenerate via the
 script rather than committing it).
 
+### Match performance: FBref + SofaScore (done — see `data/README.md`)
+
+Two complementary sources, both scoped to the same 104 matches:
+
+- `scripts/fetch_fbref_worldcup.py` — Opta-sourced, official-quality data
+  via the `soccerdata` library (drives real Chrome via Selenium to get
+  past FBref's Cloudflare check). Shooting/keeper/misc team stats per
+  match, goal/card/sub event timeline, lineups, and full player-level
+  match box scores (passing, carries, defense).
+- `scripts/fetch_sofascore_worldcup.py` — hits SofaScore's public JSON
+  API directly (`src/sofascore/client.py`). Adds what FBref doesn't
+  have: a per-minute "momentum" index, ~45 team stats split by half
+  (not just full-match totals), minute-stamped incidents, and a
+  per-shot log with xG/xGOT and pitch coordinates. Note: SofaScore's
+  FAQ states they don't license third-party API access, so this is used
+  read-only at modest, personal-research volume — see the module
+  docstring for details.
+
+Run after the Kalshi setup above:
+
+```
+.venv/bin/python scripts/fetch_fbref_worldcup.py      # ~15-20 min, first run
+.venv/bin/python scripts/fetch_sofascore_worldcup.py   # ~5 min
+```
+
+Both cache aggressively, so re-runs are fast. Output lands in
+`data/raw/fbref/` and `data/raw/sofascore/` (gitignored).
+
+None of the three sources share a match ID — `data/README.md` has the
+join recipe (team names + kickoff date).
+
 ### Still needed
 
-- Match performance data (xG, possession, shots, cards, momentum) —
-  not yet sourced.
 - Social/attention data (search trends, social mentions) — not yet
   sourced.

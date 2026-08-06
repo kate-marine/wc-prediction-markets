@@ -42,7 +42,85 @@ regulation-time win/loss/tie price action captured in `kxwcgame_minute`.
   (goal totals), `KXWCSPREAD`, `KXWCROUND` (advancement), `KXWCGROUPWIN`.
   `KXWCGAME` was the starting point since it's the cleanest per-match
   price series.
-- This data has no match-event timestamps (goals, cards, etc.) — that
-  needs to come from a separate source (e.g. a football data API) and be
-  joined on `event_ticker` / kickoff time to study price reactions to
-  specific in-game events.
+- This data has no match-event timestamps (goals, cards, etc.) — see
+  FBref/SofaScore below, joined on team names + kickoff time.
+
+## FBref (`data/raw/fbref/`)
+
+Produced by `scripts/fetch_fbref_worldcup.py` via the `soccerdata`
+library, which drives a real Chrome browser (Selenium) to get past
+FBref's Cloudflare bot check, self-throttled to ~7s/request per FBref's
+crawl policy. Source data is Opta-sourced, official-quality full-match
+and half-by-half team/player stats.
+
+- **`schedule.parquet`** — 104 matches: teams, score, date/time, venue,
+  attendance, referee, link to the match report, `game_id` (FBref's
+  8-char match hash, used to join the tables below).
+- **`team_match_shooting.parquet`** — 208 rows (104 matches x 2 teams,
+  with explicit `team`/`opponent` columns): shots, shots on target,
+  goals, `xG`, `npxG` (non-penalty xG), G/Sh, G/SoT, penalties.
+- **`team_match_keeper.parquet`** — 208 rows, goalkeeper log: goals
+  against, saves, save%, PSxG, launch/pass stats, crosses stopped.
+- **`team_match_misc.parquet`** — 208 rows: yellow/red cards, fouls
+  committed/drawn, offsides, crosses, tackles won, interceptions, ball
+  recoveries, aerial duels won/lost.
+
+  (These three come from FBref's team-season match logs, which include
+  every match a team played back to 2023 — qualifiers, friendlies, etc.
+  — and don't label which team a row belongs to. The fetch script
+  filters down to just the 104 WC 2026 matches and derives `team` by
+  joining `date` + `opponent` against the schedule.)
+- **`events.parquet`** — goal/card/substitution timeline with the
+  players and minute involved (full-match granularity, not per-minute).
+- **`lineup.parquet`** — starting XI, formation, and substitutes used.
+- **`player_match_summary.parquet`** — per-player per-match box score:
+  passing (attempted/completed/progressive), carries, tackles,
+  interceptions, blocks, touches by pitch zone, take-ons, cards.
+- **`player_match_keepers.parquet`** — per-player goalkeeper detail
+  (shot-stopping, distribution, sweeping) for matches they played.
+
+## SofaScore (`data/raw/sofascore/`)
+
+Produced by `scripts/fetch_sofascore_worldcup.py`, which hits SofaScore's
+undocumented public JSON API directly (`src/sofascore/client.py`).
+**Caveat:** SofaScore's own FAQ states they don't license third-party API
+access — this is used read-only, at modest personal-research volume,
+mirroring what several open-source scraper projects already do. Treat as
+lower-provenance than FBref; cross-check anything load-bearing.
+
+This is the source for genuinely *time-resolved* signal that FBref
+doesn't have:
+
+- **`schedule.parquet`** — 104 matches: teams, score, kickoff time
+  (`start_time`), round/stage, `event_id` (used to join the tables below).
+- **`statistics.parquet`** — long format, one row per
+  (match, period, stat). `period` is `ALL`, `1ST`, `2ND`, and `ET1`/`ET2`
+  where applicable — i.e. most of these ~45 stats (possession, xG, shots
+  by zone, passes, duels, tackles, distance covered, sprints, etc.) are
+  available split by half, not just as a full-match total.
+- **`incidents.parquet`** — goals, cards, substitutions, and period
+  markers with exact minute (`time`, `added_time`) and the player(s)
+  involved.
+- **`momentum.parquet`** — SofaScore's per-minute "momentum" index (one
+  row per match per minute) — their proprietary attacking-pressure
+  score. Useful as a continuous, minute-by-minute performance signal to
+  line up against the Kalshi minute candlesticks directly.
+- **`shotmap.parquet`** — every shot in the tournament: player, minute,
+  `xg`, `xgot` (xG on target), body part, situation (open play/corner/
+  free kick/etc.), and pitch coordinates.
+
+## Joining the three sources
+
+None of Kalshi, FBref, and SofaScore share a common match ID. Join on
+**team names + kickoff date** (all three include both):
+
+- Kalshi: `event_ticker` encodes date + 3-letter team codes (e.g.
+  `KXWCGAME-26JUL19ESPARG`); `occurrence_datetime` is the scheduled
+  kickoff.
+- FBref: `home_team`/`away_team` (full names) + `date` in `schedule.parquet`.
+- SofaScore: `home_team`/`away_team` (full names) + `start_time` in
+  `schedule.parquet`.
+
+Team names differ slightly across sources (e.g. FBref's "Bosnia–Herz"
+vs. SofaScore's likely full name) — building a small crosswalk table is
+the first step before merging.
