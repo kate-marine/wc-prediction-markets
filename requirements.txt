@@ -2,3 +2,5 @@ requests>=2.31
 pandas>=2.2
 pyarrow>=16.0
 tqdm>=4.66
+soccerdata>=1.9
+tls_requests>=0.1
