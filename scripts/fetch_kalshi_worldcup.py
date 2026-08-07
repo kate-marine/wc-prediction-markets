@@ -41,6 +41,11 @@ def to_ts(iso: str | None) -> int | None:
     return int(datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp())
 
 
+def _f(x: str | None) -> float | None:
+    """The API returns dollar/fixed-point fields as strings (e.g. '0.4300')."""
+    return float(x) if x is not None else None
+
+
 def flatten_candle(c: dict, market_ticker: str) -> dict:
     price = c.get("price") or {}
     yes_bid = c.get("yes_bid") or {}
@@ -49,15 +54,15 @@ def flatten_candle(c: dict, market_ticker: str) -> dict:
         "market_ticker": market_ticker,
         "end_period_ts": c["end_period_ts"],
         "timestamp": pd.to_datetime(c["end_period_ts"], unit="s", utc=True),
-        "price_open": price.get("open_dollars"),
-        "price_close": price.get("close_dollars"),
-        "price_high": price.get("high_dollars"),
-        "price_low": price.get("low_dollars"),
-        "price_mean": price.get("mean_dollars"),
-        "yes_bid_close": yes_bid.get("close_dollars"),
-        "yes_ask_close": yes_ask.get("close_dollars"),
-        "volume": c.get("volume_fp"),
-        "open_interest": c.get("open_interest_fp"),
+        "price_open": _f(price.get("open_dollars")),
+        "price_close": _f(price.get("close_dollars")),
+        "price_high": _f(price.get("high_dollars")),
+        "price_low": _f(price.get("low_dollars")),
+        "price_mean": _f(price.get("mean_dollars")),
+        "yes_bid_close": _f(yes_bid.get("close_dollars")),
+        "yes_ask_close": _f(yes_ask.get("close_dollars")),
+        "volume": _f(c.get("volume_fp")),
+        "open_interest": _f(c.get("open_interest_fp")),
     }
 
 
@@ -82,26 +87,39 @@ def fetch_match_markets(client: KalshiClient) -> pd.DataFrame:
                     "open_time": m.get("open_time"),
                     "close_time": m.get("close_time"),
                     "occurrence_datetime": m.get("occurrence_datetime"),
-                    "settlement_value_dollars": m.get("settlement_value_dollars"),
-                    "volume": m.get("volume_fp"),
-                    "open_interest": m.get("open_interest_fp"),
+                    "settlement_value_dollars": _f(m.get("settlement_value_dollars")),
+                    "volume": _f(m.get("volume_fp")),
+                    "open_interest": _f(m.get("open_interest_fp")),
                 }
             )
     return pd.DataFrame(rows)
 
 
 def fetch_match_candlesticks(client: KalshiClient, markets_df: pd.DataFrame) -> pd.DataFrame:
+    """Fetches minute candlesticks for each match market.
+
+    `occurrence_datetime` looks like a kickoff time but isn't reliable as
+    one: it's null for some matches (which used to fall back to
+    `open_time` -- when the market was *created*, often months before
+    kickoff, producing a multi-week candle window) and for others it
+    lands a few minutes *after* `close_time` (which used to make
+    start >= end and skip the market with zero candles). `close_time`
+    (settlement) is the one timestamp that's consistently accurate, so
+    windows are anchored there instead: no match, even with extra time
+    and penalties, runs longer than ~2.5 hours, so 4 hours of lookback
+    comfortably covers kickoff plus pre-match context.
+    """
     all_candles = []
     for _, row in tqdm(
         list(markets_df.iterrows()), desc="Fetching match candlesticks (1-min)"
     ):
-        start = to_ts(row["occurrence_datetime"])
-        if start is None:
-            start = to_ts(row["open_time"])
-        if start is None:
-            continue
-        start -= 60 * 60  # 1 hour of pre-kickoff context
-        end = to_ts(row["close_time"]) or int(datetime.now(timezone.utc).timestamp())
+        end = to_ts(row["close_time"])
+        if end is None:
+            end = int(datetime.now(timezone.utc).timestamp())
+        open_time = to_ts(row["open_time"])
+        start = end - 4 * 60 * 60
+        if open_time is not None:
+            start = max(start, open_time)
         if start >= end:
             continue
         candles = client.get_candlesticks(
@@ -131,9 +149,9 @@ def fetch_worldcup_winner_markets(client: KalshiClient) -> pd.DataFrame:
                     "result": m.get("result"),
                     "open_time": m.get("open_time"),
                     "close_time": m.get("close_time"),
-                    "settlement_value_dollars": m.get("settlement_value_dollars"),
-                    "volume": m.get("volume_fp"),
-                    "open_interest": m.get("open_interest_fp"),
+                    "settlement_value_dollars": _f(m.get("settlement_value_dollars")),
+                    "volume": _f(m.get("volume_fp")),
+                    "open_interest": _f(m.get("open_interest_fp")),
                 }
             )
     print(f"  {len(rows)} team title-odds markets found")
