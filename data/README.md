@@ -12,15 +12,21 @@ directory; it's gitignored since it's fully reproducible from the script.
 104 World Cup 2026 matches). Columns: `event_ticker`, `event_title`,
 `market_ticker`, `yes_team_subtitle`, `no_team_subtitle`, `status`,
 `result` (yes/no once settled), `open_time`, `close_time`,
-`occurrence_datetime` (scheduled kickoff), `settlement_value_dollars`,
-`volume`, `open_interest`.
+`occurrence_datetime`, `settlement_value_dollars`, `volume`,
+`open_interest`. **`occurrence_datetime` is not a reliable kickoff
+time** — it's null for some matches and for others lands a few minutes
+*after* `close_time`. Don't use it for timing; use SofaScore's
+`start_time` instead (see below), joined on team names.
 
 **`candlesticks/kxwcgame_minute.parquet`** — minute-resolution price
-history for every market above, spanning from 1 hour before kickoff to
-market close (i.e. through full time + resolution). Columns:
-`market_ticker`, `end_period_ts`, `timestamp`, `price_open/close/high/low/mean`
-(traded price, in dollars = implied probability), `yes_bid_close`,
-`yes_ask_close`, `volume`, `open_interest`.
+history for every market above, spanning the 4 hours before each
+market's `close_time` (comfortably covers kickoff through full time,
+extra time, and penalties, since no match runs longer than ~2.5 hours).
+Columns: `market_ticker`, `end_period_ts`, `timestamp`,
+`price_open/close/high/low/mean` (traded price, in dollars = implied
+probability), `yes_bid_close`, `yes_ask_close`, `volume`,
+`open_interest` — all numeric (the raw API returns these as strings;
+the fetch script casts them).
 
 **`kxmenworldcup_markets.parquet` / `.csv`** — one row per team in the
 `KXMENWORLDCUP` tournament-winner futures market.
@@ -58,7 +64,9 @@ and half-by-half team/player stats.
   8-char match hash, used to join the tables below).
 - **`team_match_shooting.parquet`** — 208 rows (104 matches x 2 teams,
   with explicit `team`/`opponent` columns): shots, shots on target,
-  goals, `xG`, `npxG` (non-penalty xG), G/Sh, G/SoT, penalties.
+  goals, G/Sh, G/SoT, penalties. (No xG in this particular table --
+  FBref's team-season match log doesn't carry it; use SofaScore's
+  `statistics.parquet` for xG instead.)
 - **`team_match_keeper.parquet`** — 208 rows, goalkeeper log: goals
   against, saves, save%, PSxG, launch/pass stats, crosses stopped.
 - **`team_match_misc.parquet`** — 208 rows: yellow/red cards, fouls
