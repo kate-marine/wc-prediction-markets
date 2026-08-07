@@ -9,6 +9,14 @@ moves in step with the run of play (momentum) or mostly jumps at goals.
 
 Run: .venv/bin/python analysis/plot_final_case_study.py
 Output: analysis/figures/final_case_study.png
+
+
+my description: This shows Kalshi's three outcome prices (home/away/tie) plotted over 
+the 120 minutes of the Spain vs Argentina World Cup final. You can see the tie market 
+climbing steadily as time progresses, and then all three markets reprice sharply once 
+Ferran Torres scores at minute 106.
+
+
 """
 from __future__ import annotations
 
