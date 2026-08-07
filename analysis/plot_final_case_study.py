@@ -76,7 +76,7 @@ def main() -> None:
     for label, grp in candles.groupby("yes_team_subtitle"):
         ax_price.plot(grp["minutes_since_kickoff"], grp["price_close"], label=label, linewidth=1.5)
     ax_price.set_ylabel("Kalshi implied probability")
-    ax_price.set_title(f"{home_team} vs {away_team} ({match_date}): price vs momentum")
+    ax_price.set_title(f"{home_team} vs {away_team} ({match_date}): price vs time")
     ax_price.legend(loc="upper left", fontsize=8)
     ax_price.set_ylim(-0.02, 1.02)
 
@@ -85,18 +85,18 @@ def main() -> None:
     ax_momentum.set_ylabel("SofaScore momentum\n(+ home / − away)")
     ax_momentum.set_xlabel("Minutes since kickoff")
 
-    for _, goal in goals.iterrows():
-        scorer = home_team if goal["is_home"] else away_team
-        for ax in (ax_price, ax_momentum):
-            ax.axvline(goal["time"], color="tab:red", linestyle="--", linewidth=1, alpha=0.7)
-        ax_price.annotate(
-            f"Goal: {scorer}\n({goal['player_name']})",
-            xy=(goal["time"], 1.0),
-            xytext=(goal["time"], 1.05),
-            fontsize=7,
-            ha="center",
-            annotation_clip=False,
-        )
+    # for _, goal in goals.iterrows():
+    #     scorer = home_team if goal["is_home"] else away_team
+    #     for ax in (ax_price, ax_momentum):
+    #         ax.axvline(goal["time"], color="tab:red", linestyle="--", linewidth=1, alpha=0.7)
+    #     ax_price.annotate(
+    #         f"Goal: {scorer}\n({goal['player_name']})",
+    #         xy=(goal["time"], 1.0),
+    #         xytext=(goal["time"], 1.05),
+    #         fontsize=7,
+    #         ha="center",
+    #         annotation_clip=False,
+    #     )
 
     fig.tight_layout()
     out_path = FIG_DIR / "final_case_study.png"
