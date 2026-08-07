@@ -4,3 +4,4 @@ pyarrow>=16.0
 tqdm>=4.66
 soccerdata>=1.9
 tls_requests>=0.1
+matplotlib>=3.8

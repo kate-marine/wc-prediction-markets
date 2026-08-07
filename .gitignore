@@ -3,4 +3,5 @@ __pycache__/
 *.pyc
 data/raw/
 data/processed/
+analysis/figures/
 .DS_Store
