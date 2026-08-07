@@ -10,6 +10,15 @@ compares match-level summaries, not the in-game timing of reactions.
 
 Run: .venv/bin/python analysis/plot_dominance_vs_volatility.py
 Output: analysis/figures/dominance_vs_price_volatility.png
+
+
+
+my descripton:
+
+This uses data from all 104 matches and plots the absolute value of xG margin vs how 
+much the market pricing the actual outcome moved before settling. 
+You can see that the lopsided performances (with big xG margins) tend to price more 
+steadily, while closer matches show much more varied price swings.
 """
 from __future__ import annotations
 
@@ -84,9 +93,9 @@ def main() -> None:
 
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.scatter(merged["xg_margin"], merged["price_range"], alpha=0.6, edgecolor="white", s=50)
-    ax.set_xlabel("|xG margin| (SofaScore, full match)")
+    ax.set_xlabel("|xG margin|")
     ax.set_ylabel("Price range of the market pricing the actual outcome")
-    ax.set_title("Performance dominance vs. price volatility, across all matches")
+    ax.set_title("Performance dominance vs. price volatility")
     ax.annotate(
         f"Pearson r = {corr:.2f}\nn = {len(merged)}",
         xy=(0.05, 0.95),
