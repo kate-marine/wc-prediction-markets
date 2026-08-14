@@ -1,63 +1,45 @@
 # Data
 
-## Kalshi (`data/raw/kalshi/`)
+## Kalshi 
 
-Produced by `scripts/fetch_kalshi_worldcup.py`, which pulls Kalshi's public
-market-data endpoints (no API key needed to read market data — see
-docs.kalshi.com). Re-run the script any time to refresh/regenerate this
-directory; it's gitignored since it's fully reproducible from the script.
+Used `scripts/fetch_kalshi_worldcup.py` to pull Kalshi's public
+market-data endpoints (no API key needed see docs.kalshi.com). Re-run the script any time to refresh/regenerate this directory (gitignored since it's fully reproducible from the script).
 
-**`kxwcgame_markets.parquet` / `.csv`** — one row per match outcome market
-(3 per match: home win / away win / tie) from the `KXWCGAME` series (the
+`kxwcgame_markets.parquet` — one row per match outcome market
+(3 per match: home win / away win / tie) from the KXWCGAME series (the
 104 World Cup 2026 matches). Columns: `event_ticker`, `event_title`,
 `market_ticker`, `yes_team_subtitle`, `no_team_subtitle`, `status`,
 `result` (yes/no once settled), `open_time`, `close_time`,
 `occurrence_datetime`, `settlement_value_dollars`, `volume`,
-`open_interest`. **`occurrence_datetime` is not a reliable kickoff
-time** — it's null for some matches and for others lands a few minutes
-*after* `close_time`. Don't use it for timing; use SofaScore's
-`start_time` instead (see below), joined on team names.
+`open_interest`. Note: `occurrence_datetime` is not actually accurate kickoff
+time so usring SofaScore's `start_time` instead (see below), and joined on team names.
 
-**`candlesticks/kxwcgame_minute.parquet`** — minute-resolution price
+`candlesticks/kxwcgame_minute.parquet` — minute by minute price
 history for every market above, spanning the 4 hours before each
-market's `close_time` (comfortably covers kickoff through full time,
-extra time, and penalties, since no match runs longer than ~2.5 hours).
+market's close time.
 Columns: `market_ticker`, `end_period_ts`, `timestamp`,
-`price_open/close/high/low/mean` (traded price, in dollars = implied
-probability), `yes_bid_close`, `yes_ask_close`, `volume`,
-`open_interest` — all numeric (the raw API returns these as strings;
-the fetch script casts them).
+`price_open/close/high/low/mean`, `yes_bid_close`, `yes_ask_close`, `volume`,
+`open_interest`.
 
-**`kxmenworldcup_markets.parquet` / `.csv`** — one row per team in the
-`KXMENWORLDCUP` tournament-winner futures market.
+`kxmenworldcup_markets.parquet` — one row per team in the
+tournament-winner futures market.
 
-**`candlesticks/kxmenworldcup_hourly.parquet`** — hourly price history for
-each team's title odds across the whole tournament. Useful for looking at
-how a team's championship odds drift match-to-match, separate from the
-regulation-time win/loss/tie price action captured in `kxwcgame_minute`.
+`candlesticks/kxmenworldcup_hourly.parquet` — has hourly price history for
+each team's title odds across the whole tournament. Can see
+how a team's championship odds change from match to match.
 
-### Notes for analysis
+### Notes 
 
 - Prices are in dollars (0.00–1.00) and are the market's implied
   probability of the "yes" outcome.
 - `KXWCGAME` markets are 3-way (win/lose/tie) rather than a single
   moneyline, so home and away win probabilities don't sum to 1 with the
   tie priced separately.
-- Kalshi's soccer category has many other series worth pulling later for
-  the "underlying performance vs. result" question — e.g. `KXWCTOTAL`
-  (goal totals), `KXWCSPREAD`, `KXWCROUND` (advancement), `KXWCGROUPWIN`.
-  `KXWCGAME` was the starting point since it's the cleanest per-match
-  price series.
-- This data has no match-event timestamps (goals, cards, etc.) — see
-  FBref/SofaScore below, joined on team names + kickoff time.
 
 ## FBref (`data/raw/fbref/`)
 
-Produced by `scripts/fetch_fbref_worldcup.py` via the `soccerdata`
-library, which drives a real Chrome browser (Selenium) to get past
-FBref's Cloudflare bot check, self-throttled to ~7s/request per FBref's
-crawl policy. Source data is Opta-sourced, official-quality full-match
-and half-by-half team/player stats.
+Used `scripts/fetch_fbref_worldcup.py` which drives a Chrome browser (Selenium) to get past FBref's Cloudflare bot check (~7s/request per FBref's
+crawl policy). 
 
 - **`schedule.parquet`** — 104 matches: teams, score, date/time, venue,
   attendance, referee, link to the match report, `game_id` (FBref's
