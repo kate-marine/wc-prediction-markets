@@ -11,10 +11,6 @@ def load_kalshi_final():
     markets = pd.read_parquet(ROOT / "data/raw/kalshi/kxwcgame_markets.parquet")
     candles = pd.read_parquet(ROOT / "data/raw/kalshi/candlesticks/kxwcgame_minute.parquet")
 
-    # `occurrence_datetime` is not a reliable kickoff time (null or even
-    # *after* close_time for some matches -- see fetch_kalshi_worldcup.py).
-    # close_time (settlement) is reliable, and the final is whichever
-    # match settles last.
     final_ticker = markets.loc[markets["close_time"].idxmax(), "event_ticker"]
     final_markets = markets[markets["event_ticker"] == final_ticker]
 
@@ -32,7 +28,7 @@ def load_sofascore_match(home_team: str, away_team: str):
     teams = {home_team, away_team}
     match = schedule[schedule.apply(lambda r: {r["home_team"], r["away_team"]} == teams, axis=1)]
     if match.empty:
-        raise ValueError(f"No SofaScore match found for {home_team} vs {away_team}")
+        raise ValueError(f"no match found")
     match = match.iloc[0]
     event_id = match["event_id"]
 
