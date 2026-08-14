@@ -1,36 +1,11 @@
-"""Tournament-wide: performance dominance vs. price volatility.
-
-For each of the 104 matches: how much did the Kalshi market pricing the
-actual regulation-time outcome (home win / away win / tie) move around
-before settling, and does that relate to how lopsided the match was in
-terms of underlying performance (|xG margin|, from SofaScore)?
-
-This is a first, coarse look at the project's core question -- it
-compares match-level summaries, not the in-game timing of reactions.
-
-Run: .venv/bin/python analysis/plot_dominance_vs_volatility.py
-Output: analysis/figures/dominance_vs_price_volatility.png
-
-
-
-my descripton:
-
-This uses data from all 104 matches and plots the absolute value of xG margin vs how 
-much the market pricing the actual outcome moved before settling. 
-You can see that the lopsided performances (with big xG margins) tend to price more 
-steadily, while closer matches show much more varied price swings.
-"""
 from __future__ import annotations
-
 from pathlib import Path
-
 import matplotlib.pyplot as plt
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 FIG_DIR = ROOT / "analysis" / "figures"
 
-# Kalshi's team names -> SofaScore's spelling, for the handful that differ.
 TEAM_NAME_ALIASES = {
     "Cape Verde": "Cabo Verde",
     "Bosnia and Herzegovina": "Bosnia & Herzegovina",
@@ -47,17 +22,13 @@ def load_kalshi_outcome_volatility() -> pd.DataFrame:
     markets = pd.read_parquet(ROOT / "data/raw/kalshi/kxwcgame_markets.parquet")
     candles = pd.read_parquet(ROOT / "data/raw/kalshi/candlesticks/kxwcgame_minute.parquet")
 
-    # The market that resolved "yes" is the one pricing what actually
-    # happened in regulation time (home win / away win / tie).
     outcome_markets = markets[markets["result"] == "yes"].copy()
 
     price_range = candles.groupby("market_ticker")["price_close"].agg(lambda s: s.max() - s.min())
     outcome_markets["price_range"] = outcome_markets["market_ticker"].map(price_range)
     outcome_markets = outcome_markets.dropna(subset=["price_range"])
 
-    # event_title is "Team1 vs Team2" or "Team1 vs Team2: Regulation Time
-    # Moneyline" -- not consistently suffixed, so split on " vs " and
-    # only then peel off an optional trailing ": ...".
+    # split string
     parts = outcome_markets["event_title"].str.split(" vs ", n=1, expand=True)
     team1 = parts[0].str.strip().replace(TEAM_NAME_ALIASES)
     team2 = parts[1].str.split(":").str[0].str.strip().replace(TEAM_NAME_ALIASES)
@@ -81,8 +52,8 @@ def main() -> None:
     kalshi = load_kalshi_outcome_volatility()
     xg = load_sofascore_xg_margin()
 
+    # match Kalshi matches to SofaScore xG data
     merged = kalshi.merge(xg, on="team_set", how="inner")
-    print(f"Matched {len(merged)}/{len(kalshi)} Kalshi matches to SofaScore xG data")
     unmatched = kalshi[~kalshi["team_set"].isin(xg["team_set"])]
     if len(unmatched):
         print("Unmatched (likely a team-name spelling mismatch between sources):")
